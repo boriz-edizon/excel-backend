@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "TNXE8emxlXZyJJpAzPsuIcFIiTjK3A+oR/dBqVf8h8I=",
+  "Source": "ExcelApi",
+  "BasePath": "_content/ExcelApi",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}
