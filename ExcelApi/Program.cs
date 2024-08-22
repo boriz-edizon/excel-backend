@@ -1,4 +1,5 @@
 using ExcelApi.Services;
+using RabbitMQ.Client;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,8 +10,14 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+//creating the connectionfactory for rabbitmq
+builder.Services.AddSingleton<IConnectionFactory>(sp => {
+    var factory = new ConnectionFactory { HostName = "localhost" };
+    return factory;
+});
+
 builder.Services.AddSingleton<RabbitMQProducer>();
-builder.Services.AddSingleton<RabbitMQconsumer>();
+builder.Services.AddSingleton<RabbitMQConsumer>();
 
 var app = builder.Build();
 

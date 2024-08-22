@@ -4,6 +4,8 @@ using MySqlConnector;
 using ExcelApi.Models;
 using Microsoft.AspNetCore.Http.HttpResults;
 using System.Text;
+using ExcelApi.Services;
+using RabbitMQ.Client;
 
 namespace ExcelApi.Controllers;
 
@@ -12,32 +14,48 @@ namespace ExcelApi.Controllers;
 public class ExcelApiController : ControllerBase
 {   
     private readonly IConfiguration _confirguration;
-    private MySqlConnection connection;
-    public ExcelApiController(IConfiguration configuration)
-    {
+    private MySqlConnection _connection;
+    private readonly RabbitMQProducer _publisher;
+
+    public ExcelApiController(IConfiguration configuration,  RabbitMQProducer publisher)
+    {   
+        _publisher = publisher;
         _confirguration = configuration;
-        connection = new MySqlConnection(_confirguration.GetConnectionString("Default"));
+        _connection = new MySqlConnection(_confirguration.GetConnectionString("Default"));
     } 
 
-    // [HttpGet]
-    // public async Task<IActionResult> GetExcelItem()
-    // {
-    //     var file = new List<Excel>(); // Assuming the data type is TodoItem; adjust as necessary
+    [HttpGet]
+    public async Task<IActionResult> GetExcelItem()
+    {
+        var file = new List<Excel>(); // Assuming the data type is TodoItem; adjust as necessary
 
-        // await connection.OpenAsync();
+        await _connection.OpenAsync();
 
-        // using var command = new MySqlCommand("SELECT * FROM persons;", connection);
-        // using var reader = await command.ExecuteReaderAsync();
-        // while (await reader.ReadAsync())
-        // {
-        //     var item = new Excel
-        //     {
-        //         Id = reader.GetInt32("PersonId"),
-        //     };
-        //     file.Add(item);
-        // }
-    //     return Ok(file);
-    // }
+        using var command = new MySqlCommand("SELECT * FROM file;", _connection);
+        using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            var item = new Excel
+            {
+                email_id = reader.GetString("email_id"),
+                name = reader.GetString("name"),
+                country = reader.GetString("country"),
+                state = reader.GetString("state"),
+                telephone_number = long.Parse(reader.GetString("telephone_number")),
+                address_line_1 = reader.GetString("address_line_1"),
+                address_line_2 = reader.GetString("address_line_2"),
+                date_of_birth = reader.GetString("date_of_birth"),
+                gross_salary_FY2019_20 = int.Parse(reader.GetString("gross_salary_FY2019_20")),
+                gross_salary_FY2020_21 = int.Parse(reader.GetString("gross_salary_FY2020_21")),
+                gross_salary_FY2021_22 = int.Parse(reader.GetString("gross_salary_FY2021_22")),
+                gross_salary_FY2022_23 = int.Parse(reader.GetString("gross_salary_FY2022_23")),
+                gross_salary_FY2023_24 = int.Parse(reader.GetString("gross_salary_FY2023_24")),
+
+            };
+            file.Add(item);
+        }
+        return Ok(file);
+    }
 
     [HttpPost]
     [Route("uploadCsv")]
@@ -52,6 +70,9 @@ public class ExcelApiController : ControllerBase
 
         var csvData = new List<string[]>();
 
+        Console.WriteLine("start time "+((DateTimeOffset)DateTime.UtcNow).ToUnixTimeMilliseconds());
+
+
         var reader = new StreamReader(csvFile.OpenReadStream());
 
         await reader.ReadLineAsync();
@@ -63,19 +84,18 @@ public class ExcelApiController : ControllerBase
 
 
         foreach (var chunk in csvData.Chunk(10000)){
-            await InsertDataIntoDatabase(chunk);
+            CovertToQuery(chunk);
         }
 
 
         return Ok("CSV file uploaded");
     }
 
-    private async Task InsertDataIntoDatabase(string[][] csvData)
+    private  void CovertToQuery(string[][] csvData)
     {
         var watch = new System.Diagnostics.Stopwatch();
         watch.Start();
         
-        await connection.OpenAsync();
         var query = new StringBuilder();
         query.Append("INSERT INTO file (email_id, name, country, state, city, telephone_number, address_line_1, address_line_2, date_of_birth, gross_salary_FY2019_20, gross_salary_FY2020_21, gross_salary_FY2021_22, gross_salary_FY2022_23, gross_salary_FY2023_24) VALUES ");
         foreach (var row in csvData)
@@ -99,10 +119,9 @@ public class ExcelApiController : ControllerBase
         }
         query.Length--;
         query.Append(';');
-        var command = new MySqlCommand(query.ToString(), connection);
-        await command.ExecuteNonQueryAsync();
-        await connection.CloseAsync();
+
+        _publisher.produce(query.ToString());
         watch.Stop();
-        Console.WriteLine($"Execution Time: {watch.ElapsedMilliseconds} ms");
+        Console.WriteLine($"Controller Execution Time: {watch.ElapsedMilliseconds} ms");
     }
 }

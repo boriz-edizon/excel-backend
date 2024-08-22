@@ -34,3 +34,5 @@ C:\Users\boris.edison\Desktop\boris\excel-backend\ExcelApi\obj\Debug\net8.0\ref\
 C:\Users\boris.edison\Desktop\boris\excel-backend\ExcelApi\bin\Debug\net8.0\Microsoft.EntityFrameworkCore.dll
 C:\Users\boris.edison\Desktop\boris\excel-backend\ExcelApi\bin\Debug\net8.0\Microsoft.EntityFrameworkCore.Abstractions.dll
 C:\Users\boris.edison\Desktop\boris\excel-backend\ExcelApi\bin\Debug\net8.0\MySqlConnector.dll
+C:\Users\boris.edison\Desktop\boris\excel-backend\ExcelApi\bin\Debug\net8.0\Newtonsoft.Json.dll
+C:\Users\boris.edison\Desktop\boris\excel-backend\ExcelApi\bin\Debug\net8.0\RabbitMQ.Client.dll
