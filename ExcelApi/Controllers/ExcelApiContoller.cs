@@ -4,6 +4,7 @@ using MySqlConnector;
 using ExcelApi.Models;
 using Microsoft.AspNetCore.Http.HttpResults;
 using System.Text;
+using System.Text.Json;
 using ExcelApi.Services;
 using RabbitMQ.Client;
 
@@ -24,14 +25,23 @@ public class ExcelApiController : ControllerBase
         _connection = new MySqlConnection(_confirguration.GetConnectionString("Default"));
     } 
 
-    [HttpGet]
-    public async Task<IActionResult> GetExcelItem()
+    public class Range
     {
-        var file = new List<Excel>(); // Assuming the data type is TodoItem; adjust as necessary
+        public int limit { get; set; }
+        public int offset { get; set; }
+    }
+
+    [HttpPost]
+    [Route("getCsv")]
+    public async Task<IActionResult> GetCsv([FromBody]  Range range)
+    {
+        List<Excel> file = new List<Excel>(); // Assuming the data type is TodoItem; adjust as necessary
 
         await _connection.OpenAsync();
 
-        using var command = new MySqlCommand("SELECT * FROM file;", _connection);
+        Console.WriteLine("hello");
+
+        using var command = new MySqlCommand($"SELECT * FROM file limit {range.limit} offset {range.offset};", _connection);
         using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
@@ -54,6 +64,8 @@ public class ExcelApiController : ControllerBase
             };
             file.Add(item);
         }
+
+
         return Ok(file);
     }
 
@@ -70,7 +82,7 @@ public class ExcelApiController : ControllerBase
 
         var csvData = new List<string[]>();
 
-        Console.WriteLine("start time "+((DateTimeOffset)DateTime.UtcNow).ToUnixTimeMilliseconds());
+        // Console.WriteLine("start time "+((DateTimeOffset)DateTime.UtcNow).ToUnixTimeMilliseconds());
 
 
         var reader = new StreamReader(csvFile.OpenReadStream());
@@ -122,6 +134,6 @@ public class ExcelApiController : ControllerBase
 
         _publisher.produce(query.ToString());
         watch.Stop();
-        Console.WriteLine($"Controller Execution Time: {watch.ElapsedMilliseconds} ms");
+        // Console.WriteLine($"Controller Execution Time: {watch.ElapsedMilliseconds} ms");
     }
 }

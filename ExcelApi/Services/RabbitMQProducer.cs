@@ -1,5 +1,3 @@
-using Newtonsoft.Json;
-using ExcelApi.Services;
 using RabbitMQ.Client;
 using System.Text;
 
@@ -44,7 +42,7 @@ public class RabbitMQProducer  {
         currQueueIndex++;
 
         watch.Stop();
-        Console.WriteLine($"Producer Execution Time: {watch.ElapsedMilliseconds} ms");
+        // Console.WriteLine($"Producer Execution Time: {watch.ElapsedMilliseconds} ms");
     }}
 
 }

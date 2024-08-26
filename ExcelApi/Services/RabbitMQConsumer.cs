@@ -46,13 +46,13 @@ public class RabbitMQConsumer
             var body = eventArgs.Body.ToArray();
             var message = Encoding.UTF8.GetString(body);
 
-             InsertDataIntoDatabase(message);
+            InsertDataIntoDatabase(message);
         };
         //read the message
         _channel.BasicConsume(queue: $"queue{queueNumber}", autoAck: true, consumer: consumer);
 
         watch.Stop();
-        Console.WriteLine($"Consumer Execution Time: {watch.ElapsedMilliseconds} ms");
+        // Console.WriteLine($"Consumer Execution Time: {watch.ElapsedMilliseconds} ms");
     }
 
     public  void InsertDataIntoDatabase(string query)
@@ -77,9 +77,9 @@ public class RabbitMQConsumer
             }
 
             watch.Stop();
-            Console.WriteLine($"DB Execution Time: {watch.ElapsedMilliseconds} ms");
+            // Console.WriteLine($"DB Execution Time: {watch.ElapsedMilliseconds} ms");
 
-            Console.WriteLine("end time " + ((DateTimeOffset)DateTime.UtcNow).ToUnixTimeMilliseconds());
+            // Console.WriteLine("end time " + ((DateTimeOffset)DateTime.UtcNow).ToUnixTimeMilliseconds());
 
         });
     }
