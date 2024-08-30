@@ -35,8 +35,8 @@ public class RabbitMQConsumer
     public void Consume(int queueNumber)
     {
 
-        var watch = new System.Diagnostics.Stopwatch();
-        watch.Start();
+        // var watch = new System.Diagnostics.Stopwatch();
+        // watch.Start();
 
         //Set Event object which listen message from chanel which is sent by producer
         var consumer = new EventingBasicConsumer(_channel);
@@ -47,11 +47,13 @@ public class RabbitMQConsumer
             var message = Encoding.UTF8.GetString(body);
 
             InsertDataIntoDatabase(message);
+            // Console.WriteLine("inside consume event");
         };
         //read the message
         _channel.BasicConsume(queue: $"queue{queueNumber}", autoAck: true, consumer: consumer);
 
-        watch.Stop();
+        // Console.WriteLine("consmer");
+        // watch.Stop();
         // Console.WriteLine($"Consumer Execution Time: {watch.ElapsedMilliseconds} ms");
     }
 
@@ -63,8 +65,8 @@ public class RabbitMQConsumer
 
         Task.Run(() =>
         {
-            var watch = new System.Diagnostics.Stopwatch();
-            watch.Start();
+            // var watch = new System.Diagnostics.Stopwatch();
+            // watch.Start();
 
             using (var mySQLConnection = new MySqlConnection(_sqlConnectionString))
             {
@@ -74,13 +76,15 @@ public class RabbitMQConsumer
                     command.ExecuteNonQuery();
                 }
                 mySQLConnection.Close();
+                // Console.WriteLine("Sql Connection end");
             }
 
-            watch.Stop();
+            // watch.Stop();
             // Console.WriteLine($"DB Execution Time: {watch.ElapsedMilliseconds} ms");
 
             // Console.WriteLine("end time " + ((DateTimeOffset)DateTime.UtcNow).ToUnixTimeMilliseconds());
 
         });
+
     }
 }

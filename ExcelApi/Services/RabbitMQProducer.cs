@@ -28,8 +28,8 @@ public class RabbitMQProducer  {
     }
 
     public void produce(string chunk) {{
-        var watch = new System.Diagnostics.Stopwatch();
-        watch.Start();
+        // var watch = new System.Diagnostics.Stopwatch();
+        // watch.Start();
 
         currQueueIndex = (currQueueIndex == 5) ? 0 : currQueueIndex;
 
@@ -41,10 +41,9 @@ public class RabbitMQProducer  {
 
         currQueueIndex++;
 
-        watch.Stop();
+        // Console.WriteLine("producer");
+        // watch.Stop();
         // Console.WriteLine($"Producer Execution Time: {watch.ElapsedMilliseconds} ms");
     }}
 
 }
-
-
