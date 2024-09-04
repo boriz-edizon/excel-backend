@@ -28,6 +28,12 @@ public class ExcelApiController : ControllerBase
         public int Offset { get; set; }
     }
 
+    public class FindReplaceRequest
+    {
+        public string? FindText { get; set; }
+        public string? ReplaceText { get; set; }
+    }
+
     // API to fetch a range of CSV records from the database
     [HttpPost("getCsv")]
     public async Task<IActionResult> GetCsv([FromBody] Range range)
@@ -54,19 +60,20 @@ public class ExcelApiController : ControllerBase
             {
                 var item = new Excel
                 {
+                    id = reader.GetInt32("id"),
                     email_id = reader.GetString("email_id"),
                     name = reader.GetString("name"),
                     country = reader.GetString("country"),
                     state = reader.GetString("state"),
-                    telephone_number = long.Parse(reader.GetString("telephone_number")),
+                    telephone_number = reader.GetString("telephone_number"),
                     address_line_1 = reader.GetString("address_line_1"),
                     address_line_2 = reader.GetString("address_line_2"),
                     date_of_birth = reader.GetString("date_of_birth"),
-                    gross_salary_FY2019_20 = int.Parse(reader.GetString("gross_salary_FY2019_20")),
-                    gross_salary_FY2020_21 = int.Parse(reader.GetString("gross_salary_FY2020_21")),
-                    gross_salary_FY2021_22 = int.Parse(reader.GetString("gross_salary_FY2021_22")),
-                    gross_salary_FY2022_23 = int.Parse(reader.GetString("gross_salary_FY2022_23")),
-                    gross_salary_FY2023_24 = int.Parse(reader.GetString("gross_salary_FY2023_24")),
+                    gross_salary_FY2019_20 = reader.GetString("gross_salary_FY2019_20"),
+                    gross_salary_FY2020_21 = reader.GetString("gross_salary_FY2020_21"),
+                    gross_salary_FY2021_22 = reader.GetString("gross_salary_FY2021_22"),
+                    gross_salary_FY2022_23 = reader.GetString("gross_salary_FY2022_23"),
+                    gross_salary_FY2023_24 = reader.GetString("gross_salary_FY2023_24"),
 
                 };
                 file.Add(item);
@@ -120,6 +127,66 @@ public class ExcelApiController : ControllerBase
         }
 
         return Ok("CSV file uploaded successfully.");
+    }
+
+    [HttpPost("UpdateRecord")]
+    public async Task<IActionResult> UpdateRecord([FromBody] Excel record)
+    {
+        // Validate the incoming record
+        if (record == null)
+        {
+            return BadRequest("Invalid record data.");
+        }
+
+        // Build the SQL update statement dynamically
+        var query = new StringBuilder("UPDATE FILE SET ");
+
+        var properties = record.GetType().GetProperties();
+
+        // Append each property and its value to the SQL update statement
+        foreach (var property in properties)
+        {
+            // Ensure the value is correctly formatted, handling nulls as empty strings
+            string value = property.GetValue(record)?.ToString() ?? string.Empty;
+            // Properly escape single quotes to prevent SQL injection
+            string escapedValue = value.Replace("'", "''");
+            query.Append($"{property.Name}='{value}',");
+        }
+        // Remove the trailing comma from the SQL statement
+        query.Length--;
+
+        // Add the WHERE clause to target the specific record by row number
+        query.Append($" WHERE id={record.id};");
+
+        // Execute the update query within a try-catch block for error handling
+        try
+        {
+            await _connection.OpenAsync();
+            await using var command = new MySqlCommand(query.ToString(), _connection);
+
+            // Execute the query and get the number of affected rows
+            var result = await command.ExecuteNonQueryAsync();
+
+            // Close the connection explicitly (optional due to using statement)
+            await _connection.CloseAsync();
+
+            // Check if any rows were affected, indicating a successful update
+            if (result == 0)
+            {
+                // Log the failure and return a BadRequest response
+                return BadRequest("Update failed: No records were affected.");
+            }
+
+            // Log the success and return an Ok response with the number of affected rows
+            Console.WriteLine($"Update successful: {result} record(s) updated.");
+            return Ok(new { Message = "Update successful", RowsAffected = result });
+        }
+        catch (MySqlException ex)
+        {
+            // Log the exception and return an InternalServerError response
+            Console.WriteLine($"Database error occurred: {ex.Message}");
+            return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while updating the record.");
+        }
     }
 
     // Convert CSV data into a SQL INSERT query and send it to RabbitMQ
