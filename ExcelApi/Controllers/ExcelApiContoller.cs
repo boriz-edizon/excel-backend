@@ -189,6 +189,56 @@ public class ExcelApiController : ControllerBase
         }
     }
 
+    // API to find and replace text within the database records
+    [HttpPost("findAndReplace")]
+    public async Task<IActionResult> FindAndReplace([FromBody] FindReplaceRequest request)
+    {
+        if (request == null || string.IsNullOrEmpty(request.FindText) || request.ReplaceText == null)
+        {
+            return BadRequest("Invalid find and replace parameters.");
+        }
+
+        try
+        {
+            await _connection.OpenAsync();
+
+            // Building the SQL query to update all fields containing the FindText
+            var query = new StringBuilder();
+            query.Append("UPDATE file SET ");
+            query.Append("email_id = REPLACE(email_id, @FindText, @ReplaceText), ");
+            query.Append("name = REPLACE(name, @FindText, @ReplaceText), ");
+            query.Append("country = REPLACE(country, @FindText, @ReplaceText), ");
+            query.Append("state = REPLACE(state, @FindText, @ReplaceText), ");
+            query.Append("telephone_number = REPLACE(telephone_number, @FindText, @ReplaceText), ");
+            query.Append("address_line_1 = REPLACE(address_line_1, @FindText, @ReplaceText), ");
+            query.Append("address_line_2 = REPLACE(address_line_2, @FindText, @ReplaceText), ");
+            query.Append("date_of_birth = REPLACE(date_of_birth, @FindText, @ReplaceText), ");
+            query.Append("gross_salary_FY2019_20 = REPLACE(gross_salary_FY2019_20, @FindText, @ReplaceText), ");
+            query.Append("gross_salary_FY2020_21 = REPLACE(gross_salary_FY2020_21, @FindText, @ReplaceText), ");
+            query.Append("gross_salary_FY2021_22 = REPLACE(gross_salary_FY2021_22, @FindText, @ReplaceText), ");
+            query.Append("gross_salary_FY2022_23 = REPLACE(gross_salary_FY2022_23, @FindText, @ReplaceText), ");
+            query.Append("gross_salary_FY2023_24 = REPLACE(gross_salary_FY2023_24, @FindText, @ReplaceText);");
+
+            // Prepare and execute the SQL command
+            using var command = new MySqlCommand(query.ToString(), _connection);
+            command.Parameters.AddWithValue("@FindText", request.FindText);
+            command.Parameters.AddWithValue("@ReplaceText", request.ReplaceText);
+
+            var result = await command.ExecuteNonQueryAsync();
+
+            // Close the connection explicitly (optional due to using statement)
+            await _connection.CloseAsync();
+
+            // Return the number of affected rows
+            return Ok(new { Message = "Find and Replace successful", RowsAffected = result });
+        }
+        catch (Exception ex)
+        {
+            // Return a 500 Internal Server Error with the exception message
+            return StatusCode(500, $"Internal server error: {ex.Message}");
+        }
+    }
+
     // Convert CSV data into a SQL INSERT query and send it to RabbitMQ
     private void  ConvertToQueryAsync(string[][] csvData)
     {

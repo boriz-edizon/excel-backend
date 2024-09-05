@@ -36,3 +36,4 @@ C:\Users\boris.edison\Desktop\boris\excel-backend\ExcelApi\bin\Debug\net8.0\Micr
 C:\Users\boris.edison\Desktop\boris\excel-backend\ExcelApi\bin\Debug\net8.0\MySqlConnector.dll
 C:\Users\boris.edison\Desktop\boris\excel-backend\ExcelApi\bin\Debug\net8.0\Newtonsoft.Json.dll
 C:\Users\boris.edison\Desktop\boris\excel-backend\ExcelApi\bin\Debug\net8.0\RabbitMQ.Client.dll
+C:\Users\boris.edison\Desktop\boris\excel-backend\ExcelApi\bin\Debug\net8.0\System.Net.WebSockets.WebSocketProtocol.dll
