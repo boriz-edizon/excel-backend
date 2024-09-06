@@ -12,11 +12,13 @@ public class ExcelApiController : ControllerBase
 {
     private readonly IConfiguration _configuration;
     private readonly RabbitMQProducer _publisher;
+    private readonly RabbitMQConsumer _consumer;
     private readonly MySqlConnection _connection;
 
-    public ExcelApiController(IConfiguration configuration, RabbitMQProducer publisher)
+    public ExcelApiController(IConfiguration configuration, RabbitMQProducer publisher, RabbitMQConsumer consumer)
     {
         _publisher = publisher;
+        _consumer = consumer;
         _configuration = configuration;
         _connection = new MySqlConnection(_configuration.GetConnectionString("Default"));
     }
@@ -113,6 +115,8 @@ public class ExcelApiController : ControllerBase
                 var values = line.Split(',');
                 csvData.Add(values);
             }
+
+            _consumer.ResetChunkCounter(csvData.Chunk(10000).Count());
 
             // Process the CSV data in chunks to avoid 
             foreach (var chunk in csvData.Chunk(10000))

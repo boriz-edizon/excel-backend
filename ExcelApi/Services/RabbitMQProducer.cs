@@ -16,30 +16,24 @@ public class RabbitMQProducer  {
         _channel = _connection.CreateModel();
         _consumer = consumer;
         
-        int numberOfQueues = 5;
         currQueueIndex = 0; 
 
-        for (int i = 0; i < numberOfQueues; i++){
-        _channel.QueueDeclare(queue: $"queue{i}", 
+        _channel.QueueDeclare(queue: "queue", 
                         durable: false,
                         exclusive: false,
                         arguments: null);
-        }
+        
     }
 
     public void produce(string chunk) {{
         // var watch = new System.Diagnostics.Stopwatch();
         // watch.Start();
 
-        currQueueIndex = (currQueueIndex == 5) ? 0 : currQueueIndex;
-
         var body = Encoding.UTF8.GetBytes(chunk);
         
-        _channel.BasicPublish(exchange: "", routingKey: $"queue{currQueueIndex}", body: body);
+        _channel.BasicPublish(exchange: "", routingKey: "queue", body: body);
 
-        _consumer.Consume(currQueueIndex);
-
-        currQueueIndex++;
+        _consumer.Consume();
 
         // Console.WriteLine("producer");
         // watch.Stop();

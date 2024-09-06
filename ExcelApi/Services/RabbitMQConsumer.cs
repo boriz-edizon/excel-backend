@@ -2,6 +2,8 @@ using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using MySqlConnector;
 using System.Text;
+using Microsoft.AspNetCore.SignalR;
+using ExcelApi.Hubs;
 
 namespace ExcelApi.Services;
 
@@ -12,8 +14,12 @@ public class RabbitMQConsumer
     private readonly IConnection _connection;
     private readonly string? _sqlConnectionString;
     private readonly IModel _channel;
+    private readonly IHubContext<ProgressHub> _hubContext;
+    private int _chunksConsumed;  
+    private int _totalChunks;  
+    private float _percentConsumed;
 
-    public RabbitMQConsumer(IConfiguration configuration, IConnectionFactory connectionFactory)
+    public RabbitMQConsumer(IConfiguration configuration, IConnectionFactory connectionFactory, IHubContext<ProgressHub> hubContext)
     {
         _configuration = configuration;
         _sqlConnectionString = _configuration.GetConnectionString("Default");
@@ -22,19 +28,21 @@ public class RabbitMQConsumer
         _connection = _connectionFactory.CreateConnection();
         _channel = _connection.CreateModel();
 
-        int numberOfQueues = 5;
+        _hubContext = hubContext;
 
-        for (int i = 0; i < numberOfQueues; i++)
-        {
-            _channel.QueueDeclare(queue: $"queue{i}",
-                            durable: false,
-                            exclusive: false,
-                            arguments: null);
-        }
+        
+        _channel.QueueDeclare(queue: "queue", durable: false,  exclusive: false, arguments: null);
     }
-    public void Consume(int queueNumber)
-    {
 
+    // Resets the packet counter to zero
+    public void ResetChunkCounter(int totalChunks)
+    {
+        _chunksConsumed = 0;
+        _totalChunks = totalChunks;
+    }
+
+    public void Consume()
+    {
         // var watch = new System.Diagnostics.Stopwatch();
         // watch.Start();
 
@@ -50,7 +58,14 @@ public class RabbitMQConsumer
             // Console.WriteLine("inside consume event");
         };
         //read the message
-        _channel.BasicConsume(queue: $"queue{queueNumber}", autoAck: true, consumer: consumer);
+        _channel.BasicConsume(queue: "queue", autoAck: true, consumer: consumer);
+
+        _chunksConsumed++;
+
+        _percentConsumed = (float)_chunksConsumed / (float)_totalChunks;
+
+        _hubContext.Clients.All.SendAsync("ReceiveUpdate", $"Packets received: {_percentConsumed}");
+
 
         // Console.WriteLine("consmer");
         // watch.Stop();
@@ -76,6 +91,7 @@ public class RabbitMQConsumer
                     command.ExecuteNonQuery();
                 }
                 mySQLConnection.Close();
+
                 // Console.WriteLine("Sql Connection end");
             }
 
@@ -83,8 +99,6 @@ public class RabbitMQConsumer
             // Console.WriteLine($"DB Execution Time: {watch.ElapsedMilliseconds} ms");
 
             // Console.WriteLine("end time " + ((DateTimeOffset)DateTime.UtcNow).ToUnixTimeMilliseconds());
-
         });
-
     }
 }

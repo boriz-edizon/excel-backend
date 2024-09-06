@@ -1,4 +1,5 @@
 using ExcelApi.Services;
+using ExcelApi.Hubs;
 using RabbitMQ.Client;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -19,17 +20,19 @@ builder.Services.AddSingleton<IConnectionFactory>(sp => {
 builder.Services.AddSingleton<RabbitMQProducer>();
 builder.Services.AddSingleton<RabbitMQConsumer>();
 
+builder.Services.AddSignalR();
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll",
-        policy =>
+    options.AddPolicy("AllowSpecificOrigins",
+        builder =>
         {
-            policy.AllowAnyOrigin()    // Allows requests from any origin
-                  .AllowAnyMethod()    // Allows any HTTP method (GET, POST, PUT, DELETE, etc.)
-                  .AllowAnyHeader();   // Allows any headers
+            builder.WithOrigins("http://127.0.0.1:5501") // Specify the frontend origin
+                            .AllowAnyMethod()
+                            .AllowAnyHeader()
+                            .AllowCredentials(); // Required for SignalR with credentials
         });
 });
-
 
 var app = builder.Build();
 
@@ -40,12 +43,14 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseCors("AllowAll");
+app.UseCors("AllowSpecificOrigins");
 
 app.UseHttpsRedirection();
 
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.MapHub<ProgressHub>("/progressHub");
 
 app.Run();
