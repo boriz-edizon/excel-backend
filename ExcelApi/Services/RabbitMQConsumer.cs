@@ -62,9 +62,9 @@ public class RabbitMQConsumer
 
         _chunksConsumed++;
 
-        _percentConsumed = (float)_chunksConsumed / (float)_totalChunks;
+        _percentConsumed = (float)_chunksConsumed / (float)_totalChunks * 100;
 
-        _hubContext.Clients.All.SendAsync("ReceiveUpdate", $"Packets received: {_percentConsumed}");
+        _hubContext.Clients.All.SendAsync("ReceiveUpdate", $"{_percentConsumed}");
 
 
         // Console.WriteLine("consmer");

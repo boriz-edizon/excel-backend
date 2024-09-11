@@ -29,7 +29,12 @@ public class ExcelApiController : ControllerBase
         public int Limit { get; set; }
         public int Offset { get; set; }
     }
-
+    public class UpdateRequest
+    {
+        public string? Value { get; set; }
+        public int Id { get; set; }
+        public string? Column { get; set; }
+    }
     public class FindReplaceRequest
     {
         public string? FindText { get; set; }
@@ -133,40 +138,30 @@ public class ExcelApiController : ControllerBase
         return Ok("CSV file uploaded successfully.");
     }
 
+
+
     [HttpPost("UpdateRecord")]
-    public async Task<IActionResult> UpdateRecord([FromBody] Excel record)
+    public async Task<IActionResult> UpdateRecord([FromBody] UpdateRequest request)
     {
         // Validate the incoming record
-        if (record == null)
+        if (request == null)
         {
             return BadRequest("Invalid record data.");
         }
 
-        // Build the SQL update statement dynamically
-        var query = new StringBuilder("UPDATE FILE SET ");
-
-        var properties = record.GetType().GetProperties();
-
-        // Append each property and its value to the SQL update statement
-        foreach (var property in properties)
-        {
-            // Ensure the value is correctly formatted, handling nulls as empty strings
-            string value = property.GetValue(record)?.ToString() ?? string.Empty;
-            // Properly escape single quotes to prevent SQL injection
-            string escapedValue = value.Replace("'", "''");
-            query.Append($"{property.Name}='{value}',");
-        }
-        // Remove the trailing comma from the SQL statement
-        query.Length--;
-
-        // Add the WHERE clause to target the specific record by row number
-        query.Append($" WHERE id={record.id};");
+        // Build the SQL update statement dynamically with parameterized queries
+        var query = $"UPDATE FILE SET {request.Column} = @Value WHERE id = @Index;";
 
         // Execute the update query within a try-catch block for error handling
         try
         {
             await _connection.OpenAsync();
             await using var command = new MySqlCommand(query.ToString(), _connection);
+
+            // Add parameters to prevent SQL injection
+            command.Parameters.AddWithValue("@Value", request.Value);
+            command.Parameters.AddWithValue("@Index", request.Id);
+
 
             // Execute the query and get the number of affected rows
             var result = await command.ExecuteNonQueryAsync();
