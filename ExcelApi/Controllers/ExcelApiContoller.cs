@@ -35,6 +35,10 @@ public class ExcelApiController : ControllerBase
         public int Id { get; set; }
         public string? Column { get; set; }
     }
+    public class DeleteRequest
+    {
+        public string? Id { get; set; }
+    }
     public class FindReplaceRequest
     {
         public string? FindText { get; set; }
@@ -126,7 +130,7 @@ public class ExcelApiController : ControllerBase
             // Process the CSV data in chunks to avoid 
             foreach (var chunk in csvData.Chunk(10000))
             {
-                 ConvertToQueryAsync(chunk);
+                ConvertToQueryAsync(chunk);
             }
         }
         catch (Exception ex)
@@ -138,9 +142,48 @@ public class ExcelApiController : ControllerBase
         return Ok("CSV file uploaded successfully.");
     }
 
+    // Convert CSV data into a SQL INSERT query and send it to RabbitMQ
+    private void ConvertToQueryAsync(string[][] csvData)
+    {
+        var query = new StringBuilder();
+        query.Append("INSERT INTO file (email_id, name, country, state, city, telephone_number, address_line_1, address_line_2, date_of_birth, gross_salary_FY2019_20, gross_salary_FY2020_21, gross_salary_FY2021_22, gross_salary_FY2022_23, gross_salary_FY2023_24) VALUES ");
 
+        foreach (var row in csvData)
+        {
+            // Construct the query for each row of data
+            query.Append($"('{MySqlHelper.EscapeString(row[0])}', " +
+                         $"'{MySqlHelper.EscapeString(row[1])}', " +
+                         $"'{MySqlHelper.EscapeString(row[2])}', " +
+                         $"'{MySqlHelper.EscapeString(row[3])}', " +
+                         $"'{MySqlHelper.EscapeString(row[4])}', " +
+                         $"'{MySqlHelper.EscapeString(row[5])}', " +
+                         $"'{MySqlHelper.EscapeString(row[6])}', " +
+                         $"'{MySqlHelper.EscapeString(row[7])}', " +
+                         $"'{MySqlHelper.EscapeString(row[8])}', " +
+                         $"'{MySqlHelper.EscapeString(row[9])}', " +
+                         $"'{MySqlHelper.EscapeString(row[10])}', " +
+                         $"'{MySqlHelper.EscapeString(row[11])}', " +
+                         $"'{MySqlHelper.EscapeString(row[12])}', " +
+                         $"'{MySqlHelper.EscapeString(row[13])}'),");
+        }
 
-    [HttpPost("UpdateRecord")]
+        // Remove the last comma and add a semicolon to complete the query
+        query.Length--;
+        query.Append(';');
+
+        try
+        {
+            // Publish the query to RabbitMQ
+            _publisher.produce(query.ToString());
+        }
+        catch (Exception ex)
+        {
+            // Log the error or handle it accordingly
+            Console.WriteLine($"Failed to produce message: {ex.Message}");
+        }
+    }
+
+    [HttpPost("updateRecord")]
     public async Task<IActionResult> UpdateRecord([FromBody] UpdateRequest request)
     {
         // Validate the incoming record
@@ -191,6 +234,7 @@ public class ExcelApiController : ControllerBase
     // API to find and replace text within the database records
     [HttpPost("findAndReplace")]
     public async Task<IActionResult> FindAndReplace([FromBody] FindReplaceRequest request)
+
     {
         if (request == null || string.IsNullOrEmpty(request.FindText) || request.ReplaceText == null)
         {
@@ -238,44 +282,29 @@ public class ExcelApiController : ControllerBase
         }
     }
 
-    // Convert CSV data into a SQL INSERT query and send it to RabbitMQ
-    private void  ConvertToQueryAsync(string[][] csvData)
+    [HttpDelete("deleteRow")]
+    public async Task<IActionResult> DeleteRow([FromBody] DeleteRequest request)
     {
-        var query = new StringBuilder();
-        query.Append("INSERT INTO file (email_id, name, country, state, city, telephone_number, address_line_1, address_line_2, date_of_birth, gross_salary_FY2019_20, gross_salary_FY2020_21, gross_salary_FY2021_22, gross_salary_FY2022_23, gross_salary_FY2023_24) VALUES ");
-
-        foreach (var row in csvData)
+        if (request == null || string.IsNullOrEmpty(request.Id))
         {
-            // Construct the query for each row of data
-            query.Append($"('{MySqlHelper.EscapeString(row[0])}', " +
-                         $"'{MySqlHelper.EscapeString(row[1])}', " +
-                         $"'{MySqlHelper.EscapeString(row[2])}', " +
-                         $"'{MySqlHelper.EscapeString(row[3])}', " +
-                         $"'{MySqlHelper.EscapeString(row[4])}', " +
-                         $"'{MySqlHelper.EscapeString(row[5])}', " +
-                         $"'{MySqlHelper.EscapeString(row[6])}', " +
-                         $"'{MySqlHelper.EscapeString(row[7])}', " +
-                         $"'{MySqlHelper.EscapeString(row[8])}', " +
-                         $"'{MySqlHelper.EscapeString(row[9])}', " +
-                         $"'{MySqlHelper.EscapeString(row[10])}', " +
-                         $"'{MySqlHelper.EscapeString(row[11])}', " +
-                         $"'{MySqlHelper.EscapeString(row[12])}', " +
-                         $"'{MySqlHelper.EscapeString(row[13])}'),");
+            return BadRequest("Invalid request. The id field is required.");
         }
 
-        // Remove the last comma and add a semicolon to complete the query
-        query.Length--;
-        query.Append(';');
+        try {
 
-        try
+            await _connection.OpenAsync();
+
+            using var command = _connection.CreateCommand();
+            command.CommandText = "DELETE FROM file WHERE id = @id";
+            command.Parameters.AddWithValue("@id", request.Id);
+
+            var result = await command.ExecuteNonQueryAsync();
+
+            return Ok();
+        } catch (Exception ex)
         {
-            // Publish the query to RabbitMQ
-            _publisher.produce(query.ToString());
-        }
-        catch (Exception ex)
-        {
-            // Log the error or handle it accordingly
-            Console.WriteLine($"Failed to produce message: {ex.Message}");
+            // Return a 500 Internal Server Error with the exception message
+            return StatusCode(500, $"Internal server error: {ex.Message}");
         }
     }
 }
