@@ -85,8 +85,8 @@ public class ExcelApiController : ControllerBase
                     gross_salary_FY2021_22 = reader.GetString("gross_salary_FY2021_22"),
                     gross_salary_FY2022_23 = reader.GetString("gross_salary_FY2022_23"),
                     gross_salary_FY2023_24 = reader.GetString("gross_salary_FY2023_24"),
-
                 };
+
                 file.Add(item);
             }
         }
@@ -281,7 +281,127 @@ public class ExcelApiController : ControllerBase
             return StatusCode(500, $"Internal server error: {ex.Message}");
         }
     }
+   
+    [HttpPost("bulkUpdate")]
+    public async Task<IActionResult> BulkUpdate([FromBody] Excel[] records)
+    {
+        // Validate the incoming array of records
+        if (records == null || records.Length == 0)
+        {
+            return BadRequest("No records provided for update.");
+        }
 
+        try
+        {
+            await _connection.OpenAsync();
+            await using var transaction = await _connection.BeginTransactionAsync(); // Start transaction
+
+            var sql = new StringBuilder();
+
+            foreach (var record in records)
+            {
+                if (record == null) continue;
+
+                // Build the SQL update statement for each record
+                var updateSql = new StringBuilder("UPDATE USER SET ");
+                var properties = record.GetType().GetProperties();
+
+                // Append each property and its value to the SQL update statement
+                foreach (var property in properties)
+                {
+                    string value = property.GetValue(record)?.ToString() ?? string.Empty;
+                    string escapedValue = value.Replace("'", "''");
+                    updateSql.Append($"{property.Name}='{escapedValue}',");
+                }
+
+                updateSql.Length--;  // Remove trailing comma
+                updateSql.Append($" WHERE row_num={record.id};");
+
+                // Append this update query to the main SQL command
+                sql.Append(updateSql);
+            }
+
+            // Execute the combined SQL update in one command
+            await using var command = new MySqlCommand(sql.ToString(), _connection, transaction);
+            var result = await command.ExecuteNonQueryAsync();
+
+            // Commit the transaction
+            await transaction.CommitAsync();
+
+            await _connection.CloseAsync();
+
+            // Return the result of the bulk update
+            return Ok(new { Message = "Bulk update successful", TotalUpdatedRecords = result });
+        }
+        catch (MySqlException ex)
+        {
+            // Log the exception and return an InternalServerError response
+            Console.WriteLine($"Database error occurred: {ex.Message}");
+            return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while updating the records.");
+        }
+    }
+    
+    [HttpPost("FindIds")]
+    public async Task<IActionResult> FindIds([FromBody] string findText)
+    {
+        if (string.IsNullOrWhiteSpace(findText))
+        {
+            return BadRequest("Search term cannot be empty.");
+        }
+
+        var ids = new List<int>();
+
+        // Get property names of the Excel class
+        var properties = typeof(Excel).GetProperties();
+
+        // Build SQL query with proper syntax
+        var queryBuilder = new StringBuilder("SELECT id FROM file WHERE ");
+
+        for (int i = 0; i < properties.Length; i++)
+        {
+            var property = properties[i];
+            queryBuilder.Append($"{property.Name} LIKE @searchTerm");
+            if (i < properties.Length - 1)
+            {
+                queryBuilder.Append(" OR ");
+            }
+        }
+
+        var query = queryBuilder.ToString();
+
+        try
+        {
+            // Establish connection to MySQL
+            await _connection.OpenAsync();
+
+            // Create the command
+            await using var command = new MySqlCommand(query, _connection);
+            command.Parameters.AddWithValue("@searchTerm", "%" + findText + "%");
+
+            // Execute the query and process results
+            await using var reader = await command.ExecuteReaderAsync();
+
+            while (await reader.ReadAsync())
+            {
+                ids.Add(reader.GetInt32("id"));
+            }
+
+            await _connection.CloseAsync();
+        }
+        catch (MySqlException ex)
+        {
+            return StatusCode(500, $"Database error: {ex.Message}");
+        }
+
+        if (ids.Count == 0)
+        {
+            return NotFound("No records found matching the search term.");
+        }
+
+        // Return the list of matching IDs
+        return Ok(ids);
+    }
+    
     [HttpDelete("deleteRow")]
     public async Task<IActionResult> DeleteRow([FromBody] DeleteRequest request)
     {
@@ -290,7 +410,8 @@ public class ExcelApiController : ControllerBase
             return BadRequest("Invalid request. The id field is required.");
         }
 
-        try {
+        try
+        {
 
             await _connection.OpenAsync();
 
@@ -301,7 +422,8 @@ public class ExcelApiController : ControllerBase
             var result = await command.ExecuteNonQueryAsync();
 
             return Ok();
-        } catch (Exception ex)
+        }
+        catch (Exception ex)
         {
             // Return a 500 Internal Server Error with the exception message
             return StatusCode(500, $"Internal server error: {ex.Message}");
